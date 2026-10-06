@@ -1,4 +1,8 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Registro Presenze Operatori</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
@@ -27,7 +31,10 @@
   --c0:#FFA64D; --c1:#6CC492; --c2:#D68AC4; --c3:#E58C6E; --c4:#B7C95A; --c5:#C9A27C;
   color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);padding-inline:16px;padding-block:0 48px}
+[hidden]{display:none!important}
+html{color-scheme:light}
+@media (prefers-color-scheme: dark){html{color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);padding-inline:16px;padding-block:0 48px}
 .wrap{max-width:980px;margin:0 auto}
 header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-block:24px 16px;border-bottom:2px solid var(--ink)}
 h1{font:800 clamp(1.6rem,4vw,2.2rem)/1.05 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
@@ -107,12 +114,14 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <header>
     <div>
       <h1>Registro <span>Presenze</span></h1>
-      <p class="sub">Orari e presenze degli operatori, condivisi dal team</p>
+      <p class="sub">Orari e presenze degli operatori, salvati nel Foglio Google</p>
     </div>
     <nav role="tablist" aria-label="Sezioni">
       <button role="tab" id="tab-inserisci" data-view="inserisci" aria-selected="true">Inserisci</button>
@@ -122,7 +131,14 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
   </header>
 
   <main>
-    <div id="status" class="notice">Collegamento al registro condiviso…</div>
+    <div id="status" class="notice">Avvio…</div>
+    <form id="pinForm" class="notice" hidden style="display:grid;gap:8px">
+      <label for="pinInput" id="pinMsg">Inserisci il PIN</label>
+      <div class="row">
+        <input id="pinInput" type="password" autocomplete="current-password" style="flex:1 1 140px;width:auto">
+        <button class="btn primary" type="submit">Entra</button>
+      </div>
+    </form>
 
     <!-- INSERISCI -->
     <section id="view-inserisci" class="split">
@@ -235,10 +251,17 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
       <p class="muted" style="margin:0;font-size:.85rem">I file CSV usano il punto e virgola e la virgola decimale: si aprono direttamente in Excel in italiano.</p>
     </section>
   </main>
+  <footer class="row" style="justify-content:flex-end;border-top:1px solid var(--line);padding-top:12px">
+    <button class="btn ghost" id="reloadBtn">Aggiorna dati</button>
+    <button class="btn ghost" id="logoutBtn">Cambia PIN</button>
+  </footer>
 </div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
+/* ====== CONFIGURAZIONE: incolla qui l'URL dell'App web di Google Apps Script ====== */
+const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAwwSDVIyL39jhvZaYF6ygjedm2jJYPH2A57V-8iVACIaau7A/exec";
+/* ================================================================================= */
 (function(){
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -254,92 +277,120 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
   function minutes(a,b){ const x = toMin(a), y = toMin(b); if(x==null||y==null) return 0; let d = y-x; if(d<=0) d += 1440; return d; }
   const fmtH = m => { const h = Math.floor(m/60), r = m%60; return h+"h"+(r? " "+pad(r)+"m" : ""); };
   const decIt = m => (m/60).toFixed(2).replace(".",",");
+  const store = {
+    get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+    set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+    del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+  };
 
   const S = {
-    db:null, downloads:null,
-    ops:[], turni:new Map(), subs:new Map(),
+    pin: store.get("rp_pin"), ready:false,
+    ops:[], turni:new Map(),
     view:"inserisci", weekStart: monday(new Date()), month: ym(new Date()),
     editingId:null
   };
 
+  /* ---------- collegamento al Foglio Google ---------- */
+  async function apiGet(){
+    const r = await fetch(API_URL+"?action=list&pin="+encodeURIComponent(S.pin||""));
+    const j = await r.json(); if(!j.ok) throw j; return j;
+  }
+  async function apiPost(action, data){
+    const r = await fetch(API_URL, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({pin:S.pin, action, data}) });
+    const j = await r.json(); if(!j.ok) throw j; return j;
+  }
+  function errMsg(e){
+    if(e && e.error==="pin"){ askPin("PIN non valido: inseriscilo di nuovo."); return "PIN non valido"; }
+    if(e && e.error) return e.error;
+    return "Collegamento al Foglio non riuscito. Controlla la connessione e riprova.";
+  }
+
+  async function load(){
+    setStatus("Carico i dati dal Foglio Google…");
+    try{
+      const j = await apiGet();
+      S.ops = j.ops.sort((a,b)=>String(a.nome).localeCompare(String(b.nome),"it"));
+      S.turni = new Map(j.turni.map(t => [t.id, t]));
+      S.ready = true; setStatus(null); $("#pinForm").hidden = true; enableWrites(true);
+      render();
+    }catch(e){
+      if(e && e.error==="pin"){ S.pin = null; store.del("rp_pin"); askPin("PIN non valido: inseriscilo di nuovo."); return; }
+      setStatus(errMsg(e), true);
+    }
+  }
+
+  function askPin(msg){
+    setStatus(null); enableWrites(false);
+    $("#pinMsg").textContent = msg || "Inserisci il PIN che hai scelto nello script del Foglio Google.";
+    $("#pinForm").hidden = false; $("#pinInput").focus();
+  }
+  $("#pinForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = $("#pinInput").value.trim(); if(!v) return;
+    S.pin = v; store.set("rp_pin", v); $("#pinInput").value = ""; load();
+  });
+  $("#reloadBtn").addEventListener("click", () => { if(S.pin) load(); });
+  $("#logoutBtn").addEventListener("click", () => { S.pin = null; store.del("rp_pin"); S.ops = []; S.turni = new Map(); render(); askPin(); });
+
   /* ---------- UI basics ---------- */
   let toastT;
-  function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=>t.hidden=true, 2400); }
+  function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=>t.hidden=true, 2600); }
   function setStatus(msg, err){ const s = $("#status"); if(!msg){ s.hidden = true; return; } s.hidden = false; s.textContent = msg; s.classList.toggle("err", !!err); }
+  function enableWrites(on){ document.querySelectorAll("#shiftForm button, #opForm button").forEach(b=>b.disabled=!on); }
 
   document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
   function showView(v){
     S.view = v;
     document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view===v)));
     ["inserisci","settimana","mese"].forEach(k => $("#view-"+k).hidden = k!==v);
-    if(v==="settimana") ensureMonths(weekMonths());
-    if(v==="mese") ensureMonths([S.month]);
-    try{ localStorage.setItem("rp_view", v); }catch(e){}
+    store.set("rp_view", v);
     render();
   }
 
-  // Two-step confirm buttons (no confirm() in the viewer)
   function armOrRun(btn, run){
-    if(btn.classList.contains("armed")){ run(); return; }
-    btn.classList.add("armed"); const old = btn.textContent; btn.textContent = "Conferma";
-    setTimeout(()=>{ btn.classList.remove("armed"); btn.textContent = old; }, 3000);
+    if(btn.classList.contains("armed")){ btn.classList.remove("armed"); run(); return; }
+    btn.classList.add("armed"); const old = btn.textContent; btn.dataset.old = old; btn.textContent = "Conferma";
+    setTimeout(()=>{ if(btn.isConnected){ btn.classList.remove("armed"); btn.textContent = old; } }, 3000);
   }
 
-  /* ---------- data ---------- */
+  /* ---------- dati ---------- */
   const opById = id => S.ops.find(o => o.id===id);
   const opColor = t => { const o = opById(t.operatoreId); return "var(--c"+((o ? o.colore : 0)%6)+")"; };
-  const opName = t => (opById(t.operatoreId)?.nome) || t.nomeOperatore || "Operatore";
+  const opName = t => (opById(t.operatoreId)?.nome) || t.operatore || "Operatore";
+  const mins = t => t.minuti || minutes(t.entrata, t.uscita);
 
-  function ensureMonths(list){
-    if(!S.db) return;
-    list.forEach(m => {
-      if(S.subs.has(m)) return;
-      const unsub = S.db.collection("turni").where("mese","==",m).onSnapshot(snap => {
-        for(const [id,t] of S.turni) if(t.mese===m && !snap.docs.some(d=>d.id===id)) S.turni.delete(id);
-        snap.docs.forEach(d => S.turni.set(d.id, {id:d.id, ...d.data()}));
-        render();
-      }, e => setStatus("Non riesco a leggere i turni ("+e.code+"). Ricarica la pagina.", true));
-      S.subs.set(m, unsub);
-    });
-  }
-  function weekMonths(){ const a = ym(S.weekStart), b = ym(addDays(S.weekStart,6)); return a===b ? [a] : [a,b]; }
-
-  /* ---------- form ---------- */
+  /* ---------- modulo ---------- */
   const fDate = $("#fDate");
   fDate.value = ymd(new Date());
   function updHours(){
-    const m = ($("#fIn").value && $("#fOut").value) ? minutes($("#fIn").value, $("#fOut").value) : 0;
-    const over = $("#fIn").value && $("#fOut").value && toMin($("#fOut").value) <= toMin($("#fIn").value);
+    const a = $("#fIn").value, b = $("#fOut").value;
+    const m = (a && b) ? minutes(a,b) : 0;
+    const over = a && b && toMin(b) <= toMin(a);
     $("#fHours").innerHTML = m ? esc(fmtH(m)) + (over ? "<small>fino al giorno dopo</small>" : "") : "—";
   }
   ["#fIn","#fOut"].forEach(s => $(s).addEventListener("input", updHours));
-  fDate.addEventListener("change", () => ensureMonths([fDate.value.slice(0,7)]));
-  $("#fOp").addEventListener("change", () => { try{ localStorage.setItem("rp_op", $("#fOp").value); }catch(e){} renderRecent(); });
+  $("#fOp").addEventListener("change", () => { store.set("rp_op", $("#fOp").value); renderRecent(); });
 
   $("#shiftForm").addEventListener("submit", async ev => {
     ev.preventDefault();
-    if(!S.db){ return; }
+    if(!S.ready) return;
     const op = opById($("#fOp").value);
     if(!op){ $("#formMsg").textContent = "Scegli un operatore."; return; }
     if(!fDate.value || !$("#fIn").value || !$("#fOut").value){ $("#formMsg").textContent = "Inserisci data, entrata e uscita."; return; }
     if($("#fIn").value === $("#fOut").value){ $("#formMsg").textContent = "Entrata e uscita coincidono: controlla gli orari."; return; }
     const rec = {
-      operatoreId: op.id, nomeOperatore: op.nome,
-      data: fDate.value, mese: fDate.value.slice(0,7),
-      entrata: $("#fIn").value, uscita: $("#fOut").value,
-      minuti: minutes($("#fIn").value, $("#fOut").value),
-      attivita: $("#fAct").value.trim(), note: $("#fNote").value.trim(),
-      aggiornato: new Date().toISOString()
+      id: S.editingId || "", operatoreId: op.id, operatore: op.nome,
+      data: fDate.value, entrata: $("#fIn").value, uscita: $("#fOut").value,
+      attivita: $("#fAct").value.trim(), note: $("#fNote").value.trim()
     };
-    const btn = $("#saveBtn"); btn.disabled = true;
+    const btn = $("#saveBtn"); btn.disabled = true; $("#formMsg").textContent = "Salvataggio…";
     try{
-      if(S.editingId){ await S.db.doc("turni/"+S.editingId).set(rec); toast("Presenza aggiornata"); }
-      else { rec.creato = rec.aggiornato; await S.db.collection("turni").add(rec); toast("Presenza salvata"); }
-      ensureMonths([rec.mese]);
-      endEdit(true);
-    }catch(e){
-      $("#formMsg").textContent = e.code==="not_granted" ? "Non hai i permessi per scrivere: chiedi a chi ha creato il registro di darti accesso da collaboratore." : "Salvataggio non riuscito ("+(e.code||"errore")+"). Riprova.";
-    }finally{ btn.disabled = false; }
+      const j = await apiPost("saveShift", rec);
+      S.turni.set(j.item.id, j.item);
+      toast(S.editingId ? "Presenza aggiornata" : "Presenza salvata");
+      endEdit(true); render();
+    }catch(e){ $("#formMsg").textContent = errMsg(e); }
+    finally{ btn.disabled = false; }
   });
 
   function startEdit(id){
@@ -363,19 +414,29 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
   $("#cancelEdit").addEventListener("click", () => endEdit(true));
 
   async function delShift(id){
-    try{ await S.db.doc("turni/"+id).delete(); toast("Presenza eliminata"); if(S.editingId===id) endEdit(true); }
-    catch(e){ toast("Eliminazione non riuscita"); }
+    try{ await apiPost("deleteShift", {id}); S.turni.delete(id); toast("Presenza eliminata"); if(S.editingId===id) endEdit(true); render(); }
+    catch(e){ toast(errMsg(e)); }
   }
 
   /* ---------- operatori ---------- */
   $("#opForm").addEventListener("submit", async ev => {
     ev.preventDefault();
-    const nome = $("#opName").value.trim(); if(!nome || !S.db) return;
+    const nome = $("#opName").value.trim(); if(!nome || !S.ready) return;
     if(S.ops.some(o => o.nome.toLowerCase()===nome.toLowerCase())){ toast("Operatore già presente"); return; }
     const used = new Set(S.ops.map(o=>o.colore%6)); let c = 0; while(used.has(c) && c<5) c++;
     if(used.size>=6) c = S.ops.length%6;
-    try{ const ref = await S.db.collection("operatori").add({nome, colore:c, creato:new Date().toISOString()}); $("#opName").value=""; $("#fOp").value = ref.id; toast(nome+" aggiunto"); }
-    catch(e){ toast(e.code==="not_granted" ? "Non hai i permessi per aggiungere operatori" : "Non riuscito, riprova"); }
+    try{
+      const j = await apiPost("addOp", {nome, colore:c});
+      S.ops.push(j.item); S.ops.sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
+      $("#opName").value = ""; render(); $("#fOp").value = j.item.id; renderRecent(); toast(nome+" aggiunto");
+    }catch(e){ toast(errMsg(e)); }
+  });
+  $("#opList").addEventListener("click", e => {
+    const b = e.target.closest("[data-delop]"); if(!b) return;
+    armOrRun(b, async () => {
+      try{ await apiPost("deleteOp", {id:b.dataset.delop}); S.ops = S.ops.filter(o=>o.id!==b.dataset.delop); render(); toast("Operatore rimosso. Le sue presenze restano nel Foglio."); }
+      catch(err){ toast(errMsg(err)); }
+    });
   });
 
   /* ---------- render ---------- */
@@ -394,30 +455,26 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
 
   function renderOps(){
     fillOpSelect($("#fOp"));
-    if(!$("#fOp").value){ try{ const v = localStorage.getItem("rp_op"); if(v && opById(v)) $("#fOp").value = v; }catch(e){} }
+    if(!$("#fOp").value){ const v = store.get("rp_op"); if(v && opById(v)) $("#fOp").value = v; }
     fillOpSelect($("#wFilter"), "Tutti gli operatori");
     fillOpSelect($("#mFilter"), "Tutti gli operatori");
     const ul = $("#opList");
-    if(!S.ops.length){ ul.innerHTML = `<li class="empty" style="display:block">Nessun operatore ancora. Aggiungi i nomi del team qui sopra: compariranno nel menu “Operatore”.</li>`; return; }
+    if(!S.ops.length){ ul.innerHTML = `<li class="empty" style="display:block">Nessun operatore ancora. Aggiungi i nomi qui sopra: compariranno nel menu “Operatore”.</li>`; return; }
     ul.innerHTML = S.ops.map(o => `<li><span class="dot" style="--c:var(--c${o.colore%6})"></span><span style="overflow-wrap:anywhere">${esc(o.nome)}</span><button class="btn ghost danger" data-delop="${esc(o.id)}" aria-label="Rimuovi ${esc(o.nome)}">Rimuovi</button></li>`).join("");
   }
-  $("#opList").addEventListener("click", e => {
-    const b = e.target.closest("[data-delop]"); if(!b) return;
-    armOrRun(b, async () => { try{ await S.db.doc("operatori/"+b.dataset.delop).delete(); toast("Operatore rimosso. Le sue presenze restano nel registro."); }catch(err){ toast("Non riuscito"); } });
-  });
 
   function renderActs(){
     const set = new Set(); for(const t of S.turni.values()) if(t.attivita) set.add(t.attivita);
     $("#actList").innerHTML = [...set].sort((a,b)=>a.localeCompare(b,"it")).map(a=>`<option value="${esc(a)}"></option>`).join("");
   }
 
-  function shiftLine(t, actions){
-    return `<li><span class="dot" style="--c:${opColor(t)}"></span>
-      <div style="min-width:0"><b>${esc(opName(t))}</b> · <span class="mono">${esc(fmtDateShort(t.data))} ${esc(t.entrata)}–${esc(t.uscita)}</span> · <span class="mono">${fmtH(t.minuti||minutes(t.entrata,t.uscita))}</span>
-      <div class="meta">${t.attivita?esc(t.attivita):"Nessuna attività indicata"}${t.note?" — "+esc(t.note):""}</div></div>
-      ${actions ? `<div class="row" style="gap:2px"><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button><button class="btn ghost danger" data-del="${esc(t.id)}">Elimina</button></div>` : ""}</li>`;
-  }
   function fmtDateShort(s){ const d = parseYmd(s); return GG[(d.getDay()+6)%7]+" "+d.getDate()+"/"+(d.getMonth()+1); }
+  function shiftLine(t){
+    return `<li><span class="dot" style="--c:${opColor(t)}"></span>
+      <div style="min-width:0"><b>${esc(opName(t))}</b> · <span class="mono">${esc(fmtDateShort(t.data))} ${esc(t.entrata)}–${esc(t.uscita)}</span> · <span class="mono">${fmtH(mins(t))}</span>
+      <div class="meta">${t.attivita?esc(t.attivita):"Nessuna attività indicata"}${t.note?" — "+esc(t.note):""}</div></div>
+      <div class="row" style="gap:2px"><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button><button class="btn ghost danger" data-del="${esc(t.id)}">Elimina</button></div></li>`;
+  }
 
   function renderRecent(){
     const opId = $("#fOp").value;
@@ -425,9 +482,9 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
     if(opId) arr = arr.filter(t => t.operatoreId===opId);
     arr.sort((a,b) => (b.aggiornato||"").localeCompare(a.aggiornato||""));
     arr = arr.slice(0,8);
-    $("#recentHint").textContent = opId && opById(opId) ? "di "+opById(opId).nome : "di tutto il team";
-    $("#recentList").innerHTML = arr.length ? arr.map(t => shiftLine(t,true)).join("")
-      : `<li class="empty" style="display:block">Ancora nessuna presenza in questo periodo. Compila il modulo: l’inserimento comparirà qui e nelle viste Settimana e Mese, visibile a tutto il team.</li>`;
+    $("#recentHint").textContent = opId && opById(opId) ? "di "+opById(opId).nome : "di tutti gli operatori";
+    $("#recentList").innerHTML = arr.length ? arr.map(shiftLine).join("")
+      : `<li class="empty" style="display:block">Ancora nessuna presenza. Compila il modulo: l’inserimento comparirà qui, nelle viste Settimana e Mese e nel Foglio Google.</li>`;
   }
   document.addEventListener("click", e => {
     const ed = e.target.closest("[data-edit]"); if(ed){ startEdit(ed.dataset.edit); return; }
@@ -441,30 +498,30 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
     let html = "";
     for(let i=0;i<7;i++){
       const d = addDays(s,i), k = ymd(d);
-      let items = [...S.turni.values()].filter(t => t.data===k && (!f || t.operatoreId===f));
-      items.sort((a,b) => a.entrata.localeCompare(b.entrata) || opName(a).localeCompare(opName(b),"it"));
-      const tot = items.reduce((n,t)=>n+(t.minuti||minutes(t.entrata,t.uscita)),0);
+      const items = [...S.turni.values()].filter(t => t.data===k && (!f || t.operatoreId===f))
+        .sort((a,b) => a.entrata.localeCompare(b.entrata) || opName(a).localeCompare(opName(b),"it"));
+      const tot = items.reduce((n,t)=>n+mins(t),0);
       html += `<div class="day${k===today?" today":""}"><h3>${GG[i]} <span>${d.getDate()}/${d.getMonth()+1}</span></h3>
         ${items.map(t => `<button class="shift" style="--c:${opColor(t)}" data-edit="${esc(t.id)}"><b>${esc(opName(t))}</b><span class="mono">${esc(t.entrata)}–${esc(t.uscita)}</span>${t.attivita?`<span class="muted">${esc(t.attivita)}</span>`:""}</button>`).join("") || `<span class="muted" style="font-size:.82rem">Nessuno</span>`}
         ${items.length ? `<div class="daytot">${items.length} ${items.length===1?"turno":"turni"} · ${fmtH(tot)}</div>` : ""}</div>`;
     }
     $("#weekGrid").innerHTML = html;
   }
-  $("#wPrev").onclick = () => { S.weekStart = addDays(S.weekStart,-7); ensureMonths(weekMonths()); renderWeek(); };
-  $("#wNext").onclick = () => { S.weekStart = addDays(S.weekStart,7); ensureMonths(weekMonths()); renderWeek(); };
-  $("#wToday").onclick = () => { S.weekStart = monday(new Date()); ensureMonths(weekMonths()); renderWeek(); };
+  $("#wPrev").onclick = () => { S.weekStart = addDays(S.weekStart,-7); renderWeek(); };
+  $("#wNext").onclick = () => { S.weekStart = addDays(S.weekStart,7); renderWeek(); };
+  $("#wToday").onclick = () => { S.weekStart = monday(new Date()); renderWeek(); };
   $("#wFilter").onchange = renderWeek;
 
   function monthData(){
-    return [...S.turni.values()].filter(t => t.mese===S.month)
+    return [...S.turni.values()].filter(t => t.data.slice(0,7)===S.month)
       .sort((a,b) => a.data.localeCompare(b.data) || a.entrata.localeCompare(b.entrata));
   }
   function summary(rows){
     const g = new Map();
     rows.forEach(t => {
-      const k = t.operatoreId || t.nomeOperatore;
+      const k = t.operatoreId || t.operatore;
       if(!g.has(k)) g.set(k, {nome:opName(t), c:opColor(t), giorni:new Set(), turni:0, min:0, att:new Map()});
-      const x = g.get(k); const m = t.minuti||minutes(t.entrata,t.uscita);
+      const x = g.get(k), m = mins(t);
       x.giorni.add(t.data); x.turni++; x.min += m;
       const a = t.attivita || "Senza attività"; x.att.set(a,(x.att.get(a)||0)+m);
     });
@@ -475,7 +532,7 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
     $("#mLabel").textContent = MESI[m-1][0].toUpperCase()+MESI[m-1].slice(1)+" "+y;
     const rows = monthData(), sum = summary(rows);
     if(!sum.length){
-      $("#sumTable").innerHTML = `<tbody><tr><td class="empty">Nessuna presenza registrata a ${MESI[m-1]}. Le ore compariranno qui man mano che il team le inserisce.</td></tr></tbody>`;
+      $("#sumTable").innerHTML = `<tbody><tr><td class="empty">Nessuna presenza registrata a ${MESI[m-1]}. Le ore compariranno qui man mano che le inserisci.</td></tr></tbody>`;
     } else {
       const tot = sum.reduce((n,x)=>n+x.min,0), tt = sum.reduce((n,x)=>n+x.turni,0);
       $("#sumTable").innerHTML = `<thead><tr><th>Operatore</th><th class="num">Giorni</th><th class="num">Turni</th><th class="num">Ore</th><th>Per attività</th></tr></thead>
@@ -485,28 +542,29 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
     }
     const f = $("#mFilter").value, det = rows.filter(t => !f || t.operatoreId===f);
     $("#detTable").innerHTML = det.length ? `<thead><tr><th>Data</th><th>Operatore</th><th class="num">Entrata</th><th class="num">Uscita</th><th class="num">Ore</th><th>Attività</th><th>Note</th><th></th></tr></thead>
-      <tbody>${det.map(t => `<tr><td class="mono" style="white-space:nowrap">${esc(fmtDateShort(t.data))}</td><td>${esc(opName(t))}</td><td class="num">${esc(t.entrata)}</td><td class="num">${esc(t.uscita)}</td><td class="num">${fmtH(t.minuti||minutes(t.entrata,t.uscita))}</td><td>${esc(t.attivita||"")}</td><td class="muted" style="min-width:12ch">${esc(t.note||"")}</td><td><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button></td></tr>`).join("")}</tbody>`
+      <tbody>${det.map(t => `<tr><td class="mono" style="white-space:nowrap">${esc(fmtDateShort(t.data))}</td><td>${esc(opName(t))}</td><td class="num">${esc(t.entrata)}</td><td class="num">${esc(t.uscita)}</td><td class="num">${fmtH(mins(t))}</td><td>${esc(t.attivita||"")}</td><td class="muted" style="min-width:12ch">${esc(t.note||"")}</td><td><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button></td></tr>`).join("")}</tbody>`
       : `<tbody><tr><td class="empty">Nessun turno da mostrare.</td></tr></tbody>`;
   }
-  const shiftMonth = n => { const [y,m] = S.month.split("-").map(Number); S.month = ym(new Date(y,m-1+n,1)); ensureMonths([S.month]); renderMonth(); };
+  const shiftMonth = n => { const [y,m] = S.month.split("-").map(Number); S.month = ym(new Date(y,m-1+n,1)); renderMonth(); };
   $("#mPrev").onclick = () => shiftMonth(-1);
   $("#mNext").onclick = () => shiftMonth(1);
   $("#mFilter").onchange = renderMonth;
 
-  /* ---------- export ---------- */
+  /* ---------- esportazione CSV per Excel ---------- */
   const csvCell = v => { const s = String(v ?? ""); return /[;"\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const csv = rows => "﻿" + rows.map(r => r.map(csvCell).join(";")).join("\r\n");
-  async function save(filename, data){
-    if(!S.downloads){ toast("Esportazione non disponibile qui"); return; }
-    try{ await S.downloads.save({filename, data}); toast("File pronto"); }
-    catch(e){ if(e && e.code!=="declined") toast("Esportazione non riuscita"); }
+  function save(filename, text){
+    const url = URL.createObjectURL(new Blob([text], {type:"text/csv;charset=utf-8"}));
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
   }
   $("#expDet").onclick = () => {
     const f = $("#mFilter").value;
     const rows = monthData().filter(t => !f || t.operatoreId===f);
     if(!rows.length){ toast("Nessun turno da esportare"); return; }
     save("presenze-dettaglio-"+S.month+".csv", csv([["Data","Operatore","Entrata","Uscita","Ore","Attività","Note"],
-      ...rows.map(t => [t.data.split("-").reverse().join("/"), opName(t), t.entrata, t.uscita, decIt(t.minuti||minutes(t.entrata,t.uscita)), t.attivita||"", t.note||""])]));
+      ...rows.map(t => [t.data.split("-").reverse().join("/"), opName(t), t.entrata, t.uscita, decIt(mins(t)), t.attivita||"", t.note||""])]));
   };
   $("#expSum").onclick = () => {
     const sum = summary(monthData());
@@ -515,27 +573,14 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
       ...sum.map(x => [x.nome, x.giorni.size, x.turni, decIt(x.min), [...x.att].map(([a,m])=>a+": "+decIt(m)).join(" | ")])]));
   };
 
-  /* ---------- boot ---------- */
-  updHours();
-  try{ const v = localStorage.getItem("rp_view"); if(v && v!=="inserisci") showView(v); }catch(e){}
-  render();
-
-  (async () => {
-    if(!window.claude || !window.claude.use){ setStatus("Apri questa pagina da claude.ai per usare il registro condiviso.", true); disableWrites(); return; }
-    const [db, downloads] = await Promise.all([claude.use("db"), claude.use("downloads")]);
-    S.downloads = downloads;
-    if(!downloads) $("#exportRow").hidden = true;
-    if(!db){ setStatus("Accedi a claude.ai per vedere e inserire le presenze del team.", true); disableWrites(); return; }
-    S.db = db;
-    setStatus(null);
-    db.collection("operatori").onSnapshot(snap => {
-      S.ops = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),"it"));
-      render();
-    }, e => setStatus("Non riesco a leggere gli operatori ("+e.code+").", true));
-    ensureMonths([...new Set([ym(new Date()), ...weekMonths(), S.month])]);
-  })();
-  function disableWrites(){ document.querySelectorAll("#shiftForm button, #opForm button").forEach(b=>b.disabled=true); }
+  /* ---------- avvio ---------- */
+  updHours(); enableWrites(false);
+  const v = store.get("rp_view"); if(v && v!=="inserisci") showView(v); else render();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)){
+    setStatus("Manca il collegamento al Foglio Google: apri index.html e incolla l’URL dell’App web nella riga API_URL in fondo al file.", true);
+  } else if(!S.pin){ askPin(); }
+  else { load(); }
 })();
 </script>
-
-</body></html>
+</body>
+</html>
