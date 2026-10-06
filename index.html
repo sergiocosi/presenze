@@ -92,6 +92,8 @@ textarea{resize:vertical;min-height:44px}
 .day h3 span{font:500 .8rem var(--f-data);color:var(--muted)}
 .shift{display:grid;gap:2px;padding:6px 8px;border-radius:6px;background:var(--bg);border-left:3px solid var(--c);font-size:.82rem;cursor:pointer;text-align:left;color:var(--ink);font-family:inherit;border-top:0;border-right:0;border-bottom:0;width:100%}
 .shift:hover{background:var(--accent-soft)}
+.shift.ro{cursor:default}
+.shift.ro:hover{background:var(--bg)}
 .shift b{overflow-wrap:anywhere}
 .shift .mono{font-size:.78rem}
 .daytot{font:500 .78rem var(--f-data);color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
@@ -223,7 +225,7 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
         </div>
       </div>
       <div class="week" id="weekGrid"></div>
-      <p class="muted" style="margin:0;font-size:.85rem">Tocca un turno per modificarlo.</p>
+      <p class="muted" style="margin:0;font-size:.85rem">Tocca un tuo turno per modificarlo.</p>
     </section>
 
     <!-- MESE -->
@@ -326,13 +328,11 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
     const admin = S.role==="admin";
     $("#opPanel").hidden = !admin;
     $("#view-inserisci").classList.toggle("solo", !admin);
-    $("#wFilterRow").hidden = !admin;
-    $("#mFilter").hidden = !admin;
     $("#fOp").disabled = !admin;
     if(!admin && S.me) $("#fOp").value = S.me;
     const me = opById(S.me);
     $("#subline").textContent = !S.role ? "Orari e presenze degli operatori"
-      : admin ? "Amministratore · tutti gli operatori" : (me ? "Ciao "+me.nome+" · i tuoi orari" : "I tuoi orari");
+      : admin ? "Amministratore · tutti gli operatori" : (me ? "Ciao "+me.nome+" · inserisci i tuoi orari, vedi quelli di tutti" : "Orari degli operatori");
     renderRecent();
   }
 
@@ -375,6 +375,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
   const opColor = t => { const o = opById(t.operatoreId); return "var(--c"+((o ? o.colore : 0)%6)+")"; };
   const opName = t => (opById(t.operatoreId)?.nome) || t.operatore || "Operatore";
   const mins = t => t.minuti || minutes(t.entrata, t.uscita);
+  const canEdit = t => S.role==="admin" || (S.role==="operatore" && t.operatoreId===S.me);
 
   /* ---------- modulo ---------- */
   const fDate = $("#fDate");
@@ -411,7 +412,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
   });
 
   function startEdit(id){
-    const t = S.turni.get(id); if(!t) return;
+    const t = S.turni.get(id); if(!t || !canEdit(t)) return;
     S.editingId = id;
     showView("inserisci");
     $("#fOp").value = t.operatoreId; fDate.value = t.data; $("#fIn").value = t.entrata; $("#fOut").value = t.uscita;
@@ -519,7 +520,8 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
   function renderRecent(){
     const opId = $("#fOp").value;
     let arr = [...S.turni.values()];
-    if(opId) arr = arr.filter(t => t.operatoreId===opId);
+    if(S.role==="operatore") arr = arr.filter(t => t.operatoreId===S.me);
+    else if(opId) arr = arr.filter(t => t.operatoreId===opId);
     arr.sort((a,b) => (b.aggiornato||"").localeCompare(a.aggiornato||""));
     arr = arr.slice(0,8);
     $("#recentHint").textContent = S.role==="operatore" ? "i tuoi" : (opId && opById(opId) ? "di "+opById(opId).nome : "di tutti gli operatori");
@@ -542,7 +544,8 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
         .sort((a,b) => a.entrata.localeCompare(b.entrata) || opName(a).localeCompare(opName(b),"it"));
       const tot = items.reduce((n,t)=>n+mins(t),0);
       html += `<div class="day${k===today?" today":""}"><h3>${GG[i]} <span>${d.getDate()}/${d.getMonth()+1}</span></h3>
-        ${items.map(t => `<button class="shift" style="--c:${opColor(t)}" data-edit="${esc(t.id)}"><b>${esc(opName(t))}</b><span class="mono">${esc(t.entrata)}–${esc(t.uscita)}</span>${t.attivita?`<span class="muted">${esc(t.attivita)}</span>`:""}</button>`).join("") || `<span class="muted" style="font-size:.82rem">Nessuno</span>`}
+        ${items.map(t => { const inner = `<b>${esc(opName(t))}</b><span class="mono">${esc(t.entrata)}–${esc(t.uscita)}</span>${t.attivita?`<span class="muted">${esc(t.attivita)}</span>`:""}`;
+          return canEdit(t) ? `<button class="shift" style="--c:${opColor(t)}" data-edit="${esc(t.id)}">${inner}</button>` : `<div class="shift ro" style="--c:${opColor(t)}">${inner}</div>`; }).join("") || `<span class="muted" style="font-size:.82rem">Nessuno</span>`}
         ${items.length ? `<div class="daytot">${items.length} ${items.length===1?"turno":"turni"} · ${fmtH(tot)}</div>` : ""}</div>`;
     }
     $("#weekGrid").innerHTML = html;
@@ -582,7 +585,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
     }
     const f = $("#mFilter").value, det = rows.filter(t => !f || t.operatoreId===f);
     $("#detTable").innerHTML = det.length ? `<thead><tr><th>Data</th><th>Operatore</th><th class="num">Entrata</th><th class="num">Uscita</th><th class="num">Ore</th><th>Attività</th><th>Note</th><th></th></tr></thead>
-      <tbody>${det.map(t => `<tr><td class="mono" style="white-space:nowrap">${esc(fmtDateShort(t.data))}</td><td>${esc(opName(t))}</td><td class="num">${esc(t.entrata)}</td><td class="num">${esc(t.uscita)}</td><td class="num">${fmtH(mins(t))}</td><td>${esc(t.attivita||"")}</td><td class="muted" style="min-width:12ch">${esc(t.note||"")}</td><td><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button></td></tr>`).join("")}</tbody>`
+      <tbody>${det.map(t => `<tr><td class="mono" style="white-space:nowrap">${esc(fmtDateShort(t.data))}</td><td>${esc(opName(t))}</td><td class="num">${esc(t.entrata)}</td><td class="num">${esc(t.uscita)}</td><td class="num">${fmtH(mins(t))}</td><td>${esc(t.attivita||"")}</td><td class="muted" style="min-width:12ch">${esc(t.note||"")}</td><td>${canEdit(t) ? `<button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button>` : ""}</td></tr>`).join("")}</tbody>`
       : `<tbody><tr><td class="empty">Nessun turno da mostrare.</td></tr></tbody>`;
   }
   const shiftMonth = n => { const [y,m] = S.month.split("-").map(Number); S.month = ym(new Date(y,m-1+n,1)); renderMonth(); };
