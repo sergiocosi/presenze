@@ -1,0 +1,541 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Registro Presenze Operatori</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: registro da lavoro — barra in alto con nome e schede, una colonna di lavoro; cifre in monospazio come su un foglio firme */
+:root{
+  --bg:#F6F5F2; --surface:#FFFFFF; --ink:#1F1B17; --muted:#6B635B; --line:#E4DED6;
+  --accent:#FF9933; --accent-ink:#8A4300; --accent-soft:#FFEBD6; --on-accent:#1F1B17;
+  --danger:#B3261E; --danger-soft:#FBE4E2; --ok:#2F7D32;
+  --c0:#D86F00; --c1:#2E7D4F; --c2:#8E3B7A; --c3:#A5462A; --c4:#5F6E12; --c5:#7A5230;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-data:"IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#161412; --surface:#201D1A; --ink:#F2EDE7; --muted:#A69C91; --line:#36312C;
+  --accent:#FF9933; --accent-ink:#FFB566; --accent-soft:#3A2A18; --on-accent:#1F1B17;
+  --danger:#FF8A80; --danger-soft:#3D1F1C; --ok:#81C784;
+  --c0:#FFA64D; --c1:#6CC492; --c2:#D68AC4; --c3:#E58C6E; --c4:#B7C95A; --c5:#C9A27C;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#161412; --surface:#201D1A; --ink:#F2EDE7; --muted:#A69C91; --line:#36312C;
+  --accent:#FF9933; --accent-ink:#FFB566; --accent-soft:#3A2A18; --on-accent:#1F1B17;
+  --danger:#FF8A80; --danger-soft:#3D1F1C; --ok:#81C784;
+  --c0:#FFA64D; --c1:#6CC492; --c2:#D68AC4; --c3:#E58C6E; --c4:#B7C95A; --c5:#C9A27C;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:980px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-block:24px 16px;border-bottom:2px solid var(--ink)}
+h1{font:800 clamp(1.6rem,4vw,2.2rem)/1.05 var(--f-display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:.9rem;margin:4px 0 0}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{font:700 .95rem var(--f-body);border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+nav button:hover:not([aria-selected="true"]){color:var(--ink);background:var(--accent-soft)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+main{display:grid;gap:28px;padding-block:24px}
+h2{font:600 1.25rem/1.2 var(--f-display);margin:0}
+.label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.notice{padding:12px 16px;border-radius:var(--r);background:var(--accent-soft);color:var(--ink);font-size:.95rem}
+.notice.err{background:var(--danger-soft)}
+form.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px 16px}
+.f{display:grid;gap:4px;min-width:0}
+.f.s2{grid-column:span 2}.f.s3{grid-column:span 3}.f.s6{grid-column:span 6}
+label{font-size:.85rem;font-weight:700}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+input[type=time],input[type=date]{font-family:var(--f-data)}
+textarea{resize:vertical;min-height:44px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.btn{font:700 .95rem var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 16px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.05);border-color:var(--accent)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 10px}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+.btn.danger{color:var(--danger)}
+.btn.danger.armed{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hours{font:500 1.6rem var(--f-data);font-variant-numeric:tabular-nums}
+.hours small{font-size:.85rem;color:var(--muted);font-family:var(--f-body);margin-left:6px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--ink);white-space:nowrap}
+.mono{font-family:var(--f-data);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.split{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
+.list{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0}
+.list .meta{font-size:.85rem;color:var(--muted);overflow-wrap:anywhere}
+.ops li{grid-template-columns:auto minmax(0,1fr) auto}
+.empty{color:var(--muted);font-size:.95rem;padding:12px 0}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.pager{display:flex;align-items:center;gap:6px}
+.pager strong{font:600 1.1rem var(--f-display);min-width:12ch;text-align:center}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px;min-height:140px;display:grid;align-content:start;gap:8px;min-width:0}
+.day.today{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.day h3{margin:0;display:flex;justify-content:space-between;align-items:baseline;font:600 .95rem var(--f-display)}
+.day h3 span{font:500 .8rem var(--f-data);color:var(--muted)}
+.shift{display:grid;gap:2px;padding:6px 8px;border-radius:6px;background:var(--bg);border-left:3px solid var(--c);font-size:.82rem;cursor:pointer;text-align:left;color:var(--ink);font-family:inherit;border-top:0;border-right:0;border-bottom:0;width:100%}
+.shift:hover{background:var(--accent-soft)}
+.shift b{overflow-wrap:anywhere}
+.shift .mono{font-size:.78rem}
+.daytot{font:500 .78rem var(--f-data);color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.num,th.num{text-align:right;font-family:var(--f-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;font-size:.9rem;z-index:10}
+.editing{outline:2px dashed var(--accent);outline-offset:4px}
+@media (max-width:820px){
+  .week{grid-template-columns:minmax(0,1fr)}
+  .day{min-height:0}
+  .split{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  form.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f.s2,.f.s3{grid-column:span 1}.f.s6,.f.op{grid-column:span 2}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Registro <span>Presenze</span></h1>
+      <p class="sub">Orari e presenze degli operatori, condivisi dal team</p>
+    </div>
+    <nav role="tablist" aria-label="Sezioni">
+      <button role="tab" id="tab-inserisci" data-view="inserisci" aria-selected="true">Inserisci</button>
+      <button role="tab" id="tab-settimana" data-view="settimana" aria-selected="false">Settimana</button>
+      <button role="tab" id="tab-mese" data-view="mese" aria-selected="false">Mese</button>
+    </nav>
+  </header>
+
+  <main>
+    <div id="status" class="notice">Collegamento al registro condiviso…</div>
+
+    <!-- INSERISCI -->
+    <section id="view-inserisci" class="split">
+      <div class="panel" id="formPanel">
+        <div class="toolbar" style="margin-bottom:16px">
+          <h2 id="formTitle">Nuova presenza</h2>
+          <button type="button" class="btn ghost" id="cancelEdit" hidden>Annulla modifica</button>
+        </div>
+        <form class="grid" id="shiftForm" autocomplete="off">
+          <div class="f s3 op">
+            <label for="fOp">Operatore</label>
+            <select id="fOp" required><option value="">Aggiungi prima un operatore</option></select>
+          </div>
+          <div class="f s3">
+            <label for="fDate">Data</label>
+            <input type="date" id="fDate" required>
+          </div>
+          <div class="f s2">
+            <label for="fIn">Entrata</label>
+            <input type="time" id="fIn" required step="300">
+          </div>
+          <div class="f s2">
+            <label for="fOut">Uscita</label>
+            <input type="time" id="fOut" required step="300">
+          </div>
+          <div class="f s2">
+            <span class="label">Ore</span>
+            <div class="hours" id="fHours" aria-live="polite">—</div>
+          </div>
+          <div class="f s6">
+            <label for="fAct">Attività / servizio</label>
+            <input id="fAct" list="actList" placeholder="Es. Laboratorio di italiano" maxlength="80">
+            <datalist id="actList"></datalist>
+          </div>
+          <div class="f s6">
+            <label for="fNote">Note</label>
+            <textarea id="fNote" rows="2" maxlength="500" placeholder="Facoltative"></textarea>
+          </div>
+          <div class="f s6">
+            <div class="row">
+              <button type="submit" class="btn primary" id="saveBtn">Salva presenza</button>
+              <span class="muted" id="formMsg" style="font-size:.9rem"></span>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div style="display:grid;gap:20px;min-width:0">
+        <div class="panel">
+          <h2 style="margin-bottom:8px">Operatori</h2>
+          <form class="row" id="opForm" style="margin-bottom:8px">
+            <input id="opName" placeholder="Nome e cognome" maxlength="60" style="flex:1 1 140px" aria-label="Nome nuovo operatore">
+            <button class="btn" type="submit">Aggiungi</button>
+          </form>
+          <ul class="list ops" id="opList"></ul>
+        </div>
+      </div>
+
+      <div class="panel" style="grid-column:1/-1">
+        <div class="toolbar" style="margin-bottom:8px">
+          <h2>Ultimi inserimenti</h2>
+          <span class="muted" style="font-size:.9rem" id="recentHint"></span>
+        </div>
+        <ul class="list" id="recentList"></ul>
+      </div>
+    </section>
+
+    <!-- SETTIMANA -->
+    <section id="view-settimana" hidden style="display:grid;gap:16px">
+      <div class="toolbar">
+        <div class="pager">
+          <button class="btn ghost" id="wPrev" aria-label="Settimana precedente">←</button>
+          <strong id="wLabel"></strong>
+          <button class="btn ghost" id="wNext" aria-label="Settimana successiva">→</button>
+          <button class="btn ghost" id="wToday">Oggi</button>
+        </div>
+        <div class="row">
+          <label for="wFilter" class="muted" style="font-weight:400">Mostra</label>
+          <select id="wFilter" style="width:auto"><option value="">Tutti gli operatori</option></select>
+        </div>
+      </div>
+      <div class="week" id="weekGrid"></div>
+      <p class="muted" style="margin:0;font-size:.85rem">Tocca un turno per modificarlo.</p>
+    </section>
+
+    <!-- MESE -->
+    <section id="view-mese" hidden style="display:grid;gap:20px">
+      <div class="toolbar">
+        <div class="pager">
+          <button class="btn ghost" id="mPrev" aria-label="Mese precedente">←</button>
+          <strong id="mLabel"></strong>
+          <button class="btn ghost" id="mNext" aria-label="Mese successivo">→</button>
+        </div>
+        <div class="row" id="exportRow">
+          <button class="btn" id="expSum">Esporta riepilogo</button>
+          <button class="btn primary" id="expDet">Esporta dettaglio</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2 style="margin-bottom:8px">Ore per operatore</h2>
+        <div class="tablewrap"><table id="sumTable"></table></div>
+      </div>
+      <div class="panel">
+        <div class="toolbar" style="margin-bottom:8px">
+          <h2>Dettaglio del mese</h2>
+          <select id="mFilter" style="width:auto" aria-label="Filtra operatore"><option value="">Tutti gli operatori</option></select>
+        </div>
+        <div class="tablewrap"><table id="detTable"></table></div>
+      </div>
+      <p class="muted" style="margin:0;font-size:.85rem">I file CSV usano il punto e virgola e la virgola decimale: si aprono direttamente in Excel in italiano.</p>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const pad = n => String(n).padStart(2,"0");
+  const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+  const ym = d => d.getFullYear()+"-"+pad(d.getMonth()+1);
+  const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+  const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+  const monday = d => { const x = new Date(d.getFullYear(),d.getMonth(),d.getDate()); const w = (x.getDay()+6)%7; return addDays(x,-w); };
+  const GG = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+  const MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+  const toMin = t => { if(!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; };
+  function minutes(a,b){ const x = toMin(a), y = toMin(b); if(x==null||y==null) return 0; let d = y-x; if(d<=0) d += 1440; return d; }
+  const fmtH = m => { const h = Math.floor(m/60), r = m%60; return h+"h"+(r? " "+pad(r)+"m" : ""); };
+  const decIt = m => (m/60).toFixed(2).replace(".",",");
+
+  const S = {
+    db:null, downloads:null,
+    ops:[], turni:new Map(), subs:new Map(),
+    view:"inserisci", weekStart: monday(new Date()), month: ym(new Date()),
+    editingId:null
+  };
+
+  /* ---------- UI basics ---------- */
+  let toastT;
+  function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=>t.hidden=true, 2400); }
+  function setStatus(msg, err){ const s = $("#status"); if(!msg){ s.hidden = true; return; } s.hidden = false; s.textContent = msg; s.classList.toggle("err", !!err); }
+
+  document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
+  function showView(v){
+    S.view = v;
+    document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view===v)));
+    ["inserisci","settimana","mese"].forEach(k => $("#view-"+k).hidden = k!==v);
+    if(v==="settimana") ensureMonths(weekMonths());
+    if(v==="mese") ensureMonths([S.month]);
+    try{ localStorage.setItem("rp_view", v); }catch(e){}
+    render();
+  }
+
+  // Two-step confirm buttons (no confirm() in the viewer)
+  function armOrRun(btn, run){
+    if(btn.classList.contains("armed")){ run(); return; }
+    btn.classList.add("armed"); const old = btn.textContent; btn.textContent = "Conferma";
+    setTimeout(()=>{ btn.classList.remove("armed"); btn.textContent = old; }, 3000);
+  }
+
+  /* ---------- data ---------- */
+  const opById = id => S.ops.find(o => o.id===id);
+  const opColor = t => { const o = opById(t.operatoreId); return "var(--c"+((o ? o.colore : 0)%6)+")"; };
+  const opName = t => (opById(t.operatoreId)?.nome) || t.nomeOperatore || "Operatore";
+
+  function ensureMonths(list){
+    if(!S.db) return;
+    list.forEach(m => {
+      if(S.subs.has(m)) return;
+      const unsub = S.db.collection("turni").where("mese","==",m).onSnapshot(snap => {
+        for(const [id,t] of S.turni) if(t.mese===m && !snap.docs.some(d=>d.id===id)) S.turni.delete(id);
+        snap.docs.forEach(d => S.turni.set(d.id, {id:d.id, ...d.data()}));
+        render();
+      }, e => setStatus("Non riesco a leggere i turni ("+e.code+"). Ricarica la pagina.", true));
+      S.subs.set(m, unsub);
+    });
+  }
+  function weekMonths(){ const a = ym(S.weekStart), b = ym(addDays(S.weekStart,6)); return a===b ? [a] : [a,b]; }
+
+  /* ---------- form ---------- */
+  const fDate = $("#fDate");
+  fDate.value = ymd(new Date());
+  function updHours(){
+    const m = ($("#fIn").value && $("#fOut").value) ? minutes($("#fIn").value, $("#fOut").value) : 0;
+    const over = $("#fIn").value && $("#fOut").value && toMin($("#fOut").value) <= toMin($("#fIn").value);
+    $("#fHours").innerHTML = m ? esc(fmtH(m)) + (over ? "<small>fino al giorno dopo</small>" : "") : "—";
+  }
+  ["#fIn","#fOut"].forEach(s => $(s).addEventListener("input", updHours));
+  fDate.addEventListener("change", () => ensureMonths([fDate.value.slice(0,7)]));
+  $("#fOp").addEventListener("change", () => { try{ localStorage.setItem("rp_op", $("#fOp").value); }catch(e){} renderRecent(); });
+
+  $("#shiftForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    if(!S.db){ return; }
+    const op = opById($("#fOp").value);
+    if(!op){ $("#formMsg").textContent = "Scegli un operatore."; return; }
+    if(!fDate.value || !$("#fIn").value || !$("#fOut").value){ $("#formMsg").textContent = "Inserisci data, entrata e uscita."; return; }
+    if($("#fIn").value === $("#fOut").value){ $("#formMsg").textContent = "Entrata e uscita coincidono: controlla gli orari."; return; }
+    const rec = {
+      operatoreId: op.id, nomeOperatore: op.nome,
+      data: fDate.value, mese: fDate.value.slice(0,7),
+      entrata: $("#fIn").value, uscita: $("#fOut").value,
+      minuti: minutes($("#fIn").value, $("#fOut").value),
+      attivita: $("#fAct").value.trim(), note: $("#fNote").value.trim(),
+      aggiornato: new Date().toISOString()
+    };
+    const btn = $("#saveBtn"); btn.disabled = true;
+    try{
+      if(S.editingId){ await S.db.doc("turni/"+S.editingId).set(rec); toast("Presenza aggiornata"); }
+      else { rec.creato = rec.aggiornato; await S.db.collection("turni").add(rec); toast("Presenza salvata"); }
+      ensureMonths([rec.mese]);
+      endEdit(true);
+    }catch(e){
+      $("#formMsg").textContent = e.code==="not_granted" ? "Non hai i permessi per scrivere: chiedi a chi ha creato il registro di darti accesso da collaboratore." : "Salvataggio non riuscito ("+(e.code||"errore")+"). Riprova.";
+    }finally{ btn.disabled = false; }
+  });
+
+  function startEdit(id){
+    const t = S.turni.get(id); if(!t) return;
+    S.editingId = id;
+    showView("inserisci");
+    $("#fOp").value = t.operatoreId; fDate.value = t.data; $("#fIn").value = t.entrata; $("#fOut").value = t.uscita;
+    $("#fAct").value = t.attivita||""; $("#fNote").value = t.note||"";
+    $("#formTitle").textContent = "Modifica presenza"; $("#saveBtn").textContent = "Salva modifiche";
+    $("#cancelEdit").hidden = false; $("#formPanel").classList.add("editing");
+    updHours(); $("#formPanel").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function endEdit(keepOp){
+    S.editingId = null;
+    const op = $("#fOp").value, d = fDate.value;
+    $("#shiftForm").reset(); fDate.value = d || ymd(new Date()); if(keepOp) $("#fOp").value = op;
+    $("#formTitle").textContent = "Nuova presenza"; $("#saveBtn").textContent = "Salva presenza";
+    $("#cancelEdit").hidden = true; $("#formPanel").classList.remove("editing"); $("#formMsg").textContent = "";
+    updHours(); renderRecent();
+  }
+  $("#cancelEdit").addEventListener("click", () => endEdit(true));
+
+  async function delShift(id){
+    try{ await S.db.doc("turni/"+id).delete(); toast("Presenza eliminata"); if(S.editingId===id) endEdit(true); }
+    catch(e){ toast("Eliminazione non riuscita"); }
+  }
+
+  /* ---------- operatori ---------- */
+  $("#opForm").addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const nome = $("#opName").value.trim(); if(!nome || !S.db) return;
+    if(S.ops.some(o => o.nome.toLowerCase()===nome.toLowerCase())){ toast("Operatore già presente"); return; }
+    const used = new Set(S.ops.map(o=>o.colore%6)); let c = 0; while(used.has(c) && c<5) c++;
+    if(used.size>=6) c = S.ops.length%6;
+    try{ const ref = await S.db.collection("operatori").add({nome, colore:c, creato:new Date().toISOString()}); $("#opName").value=""; $("#fOp").value = ref.id; toast(nome+" aggiunto"); }
+    catch(e){ toast(e.code==="not_granted" ? "Non hai i permessi per aggiungere operatori" : "Non riuscito, riprova"); }
+  });
+
+  /* ---------- render ---------- */
+  function render(){
+    renderOps(); renderActs(); renderRecent();
+    if(S.view==="settimana") renderWeek();
+    if(S.view==="mese") renderMonth();
+  }
+
+  function fillOpSelect(sel, allLabel){
+    const cur = sel.value;
+    sel.innerHTML = (allLabel ? `<option value="">${allLabel}</option>` : (S.ops.length ? `<option value="">Scegli…</option>` : `<option value="">Aggiungi prima un operatore</option>`))
+      + S.ops.map(o => `<option value="${esc(o.id)}">${esc(o.nome)}</option>`).join("");
+    if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  }
+
+  function renderOps(){
+    fillOpSelect($("#fOp"));
+    if(!$("#fOp").value){ try{ const v = localStorage.getItem("rp_op"); if(v && opById(v)) $("#fOp").value = v; }catch(e){} }
+    fillOpSelect($("#wFilter"), "Tutti gli operatori");
+    fillOpSelect($("#mFilter"), "Tutti gli operatori");
+    const ul = $("#opList");
+    if(!S.ops.length){ ul.innerHTML = `<li class="empty" style="display:block">Nessun operatore ancora. Aggiungi i nomi del team qui sopra: compariranno nel menu “Operatore”.</li>`; return; }
+    ul.innerHTML = S.ops.map(o => `<li><span class="dot" style="--c:var(--c${o.colore%6})"></span><span style="overflow-wrap:anywhere">${esc(o.nome)}</span><button class="btn ghost danger" data-delop="${esc(o.id)}" aria-label="Rimuovi ${esc(o.nome)}">Rimuovi</button></li>`).join("");
+  }
+  $("#opList").addEventListener("click", e => {
+    const b = e.target.closest("[data-delop]"); if(!b) return;
+    armOrRun(b, async () => { try{ await S.db.doc("operatori/"+b.dataset.delop).delete(); toast("Operatore rimosso. Le sue presenze restano nel registro."); }catch(err){ toast("Non riuscito"); } });
+  });
+
+  function renderActs(){
+    const set = new Set(); for(const t of S.turni.values()) if(t.attivita) set.add(t.attivita);
+    $("#actList").innerHTML = [...set].sort((a,b)=>a.localeCompare(b,"it")).map(a=>`<option value="${esc(a)}"></option>`).join("");
+  }
+
+  function shiftLine(t, actions){
+    return `<li><span class="dot" style="--c:${opColor(t)}"></span>
+      <div style="min-width:0"><b>${esc(opName(t))}</b> · <span class="mono">${esc(fmtDateShort(t.data))} ${esc(t.entrata)}–${esc(t.uscita)}</span> · <span class="mono">${fmtH(t.minuti||minutes(t.entrata,t.uscita))}</span>
+      <div class="meta">${t.attivita?esc(t.attivita):"Nessuna attività indicata"}${t.note?" — "+esc(t.note):""}</div></div>
+      ${actions ? `<div class="row" style="gap:2px"><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button><button class="btn ghost danger" data-del="${esc(t.id)}">Elimina</button></div>` : ""}</li>`;
+  }
+  function fmtDateShort(s){ const d = parseYmd(s); return GG[(d.getDay()+6)%7]+" "+d.getDate()+"/"+(d.getMonth()+1); }
+
+  function renderRecent(){
+    const opId = $("#fOp").value;
+    let arr = [...S.turni.values()];
+    if(opId) arr = arr.filter(t => t.operatoreId===opId);
+    arr.sort((a,b) => (b.aggiornato||"").localeCompare(a.aggiornato||""));
+    arr = arr.slice(0,8);
+    $("#recentHint").textContent = opId && opById(opId) ? "di "+opById(opId).nome : "di tutto il team";
+    $("#recentList").innerHTML = arr.length ? arr.map(t => shiftLine(t,true)).join("")
+      : `<li class="empty" style="display:block">Ancora nessuna presenza in questo periodo. Compila il modulo: l’inserimento comparirà qui e nelle viste Settimana e Mese, visibile a tutto il team.</li>`;
+  }
+  document.addEventListener("click", e => {
+    const ed = e.target.closest("[data-edit]"); if(ed){ startEdit(ed.dataset.edit); return; }
+    const dl = e.target.closest("[data-del]"); if(dl){ armOrRun(dl, () => delShift(dl.dataset.del)); }
+  });
+
+  function renderWeek(){
+    const s = S.weekStart, e = addDays(s,6);
+    $("#wLabel").textContent = s.getDate()+(s.getMonth()!==e.getMonth()?" "+MESI[s.getMonth()].slice(0,3):"")+" – "+e.getDate()+" "+MESI[e.getMonth()].slice(0,3)+" "+e.getFullYear();
+    const f = $("#wFilter").value, today = ymd(new Date());
+    let html = "";
+    for(let i=0;i<7;i++){
+      const d = addDays(s,i), k = ymd(d);
+      let items = [...S.turni.values()].filter(t => t.data===k && (!f || t.operatoreId===f));
+      items.sort((a,b) => a.entrata.localeCompare(b.entrata) || opName(a).localeCompare(opName(b),"it"));
+      const tot = items.reduce((n,t)=>n+(t.minuti||minutes(t.entrata,t.uscita)),0);
+      html += `<div class="day${k===today?" today":""}"><h3>${GG[i]} <span>${d.getDate()}/${d.getMonth()+1}</span></h3>
+        ${items.map(t => `<button class="shift" style="--c:${opColor(t)}" data-edit="${esc(t.id)}"><b>${esc(opName(t))}</b><span class="mono">${esc(t.entrata)}–${esc(t.uscita)}</span>${t.attivita?`<span class="muted">${esc(t.attivita)}</span>`:""}</button>`).join("") || `<span class="muted" style="font-size:.82rem">Nessuno</span>`}
+        ${items.length ? `<div class="daytot">${items.length} ${items.length===1?"turno":"turni"} · ${fmtH(tot)}</div>` : ""}</div>`;
+    }
+    $("#weekGrid").innerHTML = html;
+  }
+  $("#wPrev").onclick = () => { S.weekStart = addDays(S.weekStart,-7); ensureMonths(weekMonths()); renderWeek(); };
+  $("#wNext").onclick = () => { S.weekStart = addDays(S.weekStart,7); ensureMonths(weekMonths()); renderWeek(); };
+  $("#wToday").onclick = () => { S.weekStart = monday(new Date()); ensureMonths(weekMonths()); renderWeek(); };
+  $("#wFilter").onchange = renderWeek;
+
+  function monthData(){
+    return [...S.turni.values()].filter(t => t.mese===S.month)
+      .sort((a,b) => a.data.localeCompare(b.data) || a.entrata.localeCompare(b.entrata));
+  }
+  function summary(rows){
+    const g = new Map();
+    rows.forEach(t => {
+      const k = t.operatoreId || t.nomeOperatore;
+      if(!g.has(k)) g.set(k, {nome:opName(t), c:opColor(t), giorni:new Set(), turni:0, min:0, att:new Map()});
+      const x = g.get(k); const m = t.minuti||minutes(t.entrata,t.uscita);
+      x.giorni.add(t.data); x.turni++; x.min += m;
+      const a = t.attivita || "Senza attività"; x.att.set(a,(x.att.get(a)||0)+m);
+    });
+    return [...g.values()].sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
+  }
+  function renderMonth(){
+    const [y,m] = S.month.split("-").map(Number);
+    $("#mLabel").textContent = MESI[m-1][0].toUpperCase()+MESI[m-1].slice(1)+" "+y;
+    const rows = monthData(), sum = summary(rows);
+    if(!sum.length){
+      $("#sumTable").innerHTML = `<tbody><tr><td class="empty">Nessuna presenza registrata a ${MESI[m-1]}. Le ore compariranno qui man mano che il team le inserisce.</td></tr></tbody>`;
+    } else {
+      const tot = sum.reduce((n,x)=>n+x.min,0), tt = sum.reduce((n,x)=>n+x.turni,0);
+      $("#sumTable").innerHTML = `<thead><tr><th>Operatore</th><th class="num">Giorni</th><th class="num">Turni</th><th class="num">Ore</th><th>Per attività</th></tr></thead>
+      <tbody>${sum.map(x => `<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap"><span class="dot" style="--c:${x.c}"></span>${esc(x.nome)}</span></td><td class="num">${x.giorni.size}</td><td class="num">${x.turni}</td><td class="num">${fmtH(x.min)}</td>
+        <td><div class="chips">${[...x.att].sort((a,b)=>b[1]-a[1]).map(([a,mm])=>`<span class="chip">${esc(a)} <span class="mono">${fmtH(mm)}</span></span>`).join("")}</div></td></tr>`).join("")}</tbody>
+      <tfoot><tr><td>Totale</td><td class="num"></td><td class="num">${tt}</td><td class="num">${fmtH(tot)}</td><td></td></tr></tfoot>`;
+    }
+    const f = $("#mFilter").value, det = rows.filter(t => !f || t.operatoreId===f);
+    $("#detTable").innerHTML = det.length ? `<thead><tr><th>Data</th><th>Operatore</th><th class="num">Entrata</th><th class="num">Uscita</th><th class="num">Ore</th><th>Attività</th><th>Note</th><th></th></tr></thead>
+      <tbody>${det.map(t => `<tr><td class="mono" style="white-space:nowrap">${esc(fmtDateShort(t.data))}</td><td>${esc(opName(t))}</td><td class="num">${esc(t.entrata)}</td><td class="num">${esc(t.uscita)}</td><td class="num">${fmtH(t.minuti||minutes(t.entrata,t.uscita))}</td><td>${esc(t.attivita||"")}</td><td class="muted" style="min-width:12ch">${esc(t.note||"")}</td><td><button class="btn ghost" data-edit="${esc(t.id)}">Modifica</button></td></tr>`).join("")}</tbody>`
+      : `<tbody><tr><td class="empty">Nessun turno da mostrare.</td></tr></tbody>`;
+  }
+  const shiftMonth = n => { const [y,m] = S.month.split("-").map(Number); S.month = ym(new Date(y,m-1+n,1)); ensureMonths([S.month]); renderMonth(); };
+  $("#mPrev").onclick = () => shiftMonth(-1);
+  $("#mNext").onclick = () => shiftMonth(1);
+  $("#mFilter").onchange = renderMonth;
+
+  /* ---------- export ---------- */
+  const csvCell = v => { const s = String(v ?? ""); return /[;"\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const csv = rows => "﻿" + rows.map(r => r.map(csvCell).join(";")).join("\r\n");
+  async function save(filename, data){
+    if(!S.downloads){ toast("Esportazione non disponibile qui"); return; }
+    try{ await S.downloads.save({filename, data}); toast("File pronto"); }
+    catch(e){ if(e && e.code!=="declined") toast("Esportazione non riuscita"); }
+  }
+  $("#expDet").onclick = () => {
+    const f = $("#mFilter").value;
+    const rows = monthData().filter(t => !f || t.operatoreId===f);
+    if(!rows.length){ toast("Nessun turno da esportare"); return; }
+    save("presenze-dettaglio-"+S.month+".csv", csv([["Data","Operatore","Entrata","Uscita","Ore","Attività","Note"],
+      ...rows.map(t => [t.data.split("-").reverse().join("/"), opName(t), t.entrata, t.uscita, decIt(t.minuti||minutes(t.entrata,t.uscita)), t.attivita||"", t.note||""])]));
+  };
+  $("#expSum").onclick = () => {
+    const sum = summary(monthData());
+    if(!sum.length){ toast("Nessun turno da esportare"); return; }
+    save("presenze-riepilogo-"+S.month+".csv", csv([["Operatore","Giorni","Turni","Ore","Dettaglio attività"],
+      ...sum.map(x => [x.nome, x.giorni.size, x.turni, decIt(x.min), [...x.att].map(([a,m])=>a+": "+decIt(m)).join(" | ")])]));
+  };
+
+  /* ---------- boot ---------- */
+  updHours();
+  try{ const v = localStorage.getItem("rp_view"); if(v && v!=="inserisci") showView(v); }catch(e){}
+  render();
+
+  (async () => {
+    if(!window.claude || !window.claude.use){ setStatus("Apri questa pagina da claude.ai per usare il registro condiviso.", true); disableWrites(); return; }
+    const [db, downloads] = await Promise.all([claude.use("db"), claude.use("downloads")]);
+    S.downloads = downloads;
+    if(!downloads) $("#exportRow").hidden = true;
+    if(!db){ setStatus("Accedi a claude.ai per vedere e inserire le presenze del team.", true); disableWrites(); return; }
+    S.db = db;
+    setStatus(null);
+    db.collection("operatori").onSnapshot(snap => {
+      S.ops = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),"it"));
+      render();
+    }, e => setStatus("Non riesco a leggere gli operatori ("+e.code+").", true));
+    ensureMonths([...new Set([ym(new Date()), ...weekMonths(), S.month])]);
+  })();
+  function disableWrites(){ document.querySelectorAll("#shiftForm button, #opForm button").forEach(b=>b.disabled=true); }
+})();
+</script>
+
+</body></html>
