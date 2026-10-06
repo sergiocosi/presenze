@@ -75,6 +75,7 @@ textarea{resize:vertical;min-height:44px}
 .mono{font-family:var(--f-data);font-variant-numeric:tabular-nums}
 .muted{color:var(--muted)}
 .split{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
+.split.solo{grid-template-columns:minmax(0,1fr)}
 .list{display:grid;gap:0;margin:0;padding:0;list-style:none}
 .list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .list li:first-child{border-top:0}
@@ -121,7 +122,7 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
   <header>
     <div>
       <h1>Registro <span>Presenze</span></h1>
-      <p class="sub">Orari e presenze degli operatori, salvati nel Foglio Google</p>
+      <p class="sub" id="subline">Orari e presenze degli operatori</p>
     </div>
     <nav role="tablist" aria-label="Sezioni">
       <button role="tab" id="tab-inserisci" data-view="inserisci" aria-selected="true">Inserisci</button>
@@ -186,9 +187,10 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
         </form>
       </div>
 
-      <div style="display:grid;gap:20px;min-width:0">
+      <div style="display:grid;gap:20px;min-width:0" id="opPanel" hidden>
         <div class="panel">
-          <h2 style="margin-bottom:8px">Operatori</h2>
+          <h2 style="margin-bottom:4px">Operatori</h2>
+          <p class="muted" style="margin:0 0 10px;font-size:.85rem">Ogni operatore entra con il suo PIN e vede solo i propri turni.</p>
           <form class="row" id="opForm" style="margin-bottom:8px">
             <input id="opName" placeholder="Nome e cognome" maxlength="60" style="flex:1 1 140px" aria-label="Nome nuovo operatore">
             <button class="btn" type="submit">Aggiungi</button>
@@ -215,7 +217,7 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
           <button class="btn ghost" id="wNext" aria-label="Settimana successiva">→</button>
           <button class="btn ghost" id="wToday">Oggi</button>
         </div>
-        <div class="row">
+        <div class="row" id="wFilterRow">
           <label for="wFilter" class="muted" style="font-weight:400">Mostra</label>
           <select id="wFilter" style="width:auto"><option value="">Tutti gli operatori</option></select>
         </div>
@@ -253,14 +255,14 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
   </main>
   <footer class="row" style="justify-content:flex-end;border-top:1px solid var(--line);padding-top:12px">
     <button class="btn ghost" id="reloadBtn">Aggiorna dati</button>
-    <button class="btn ghost" id="logoutBtn">Cambia PIN</button>
+    <button class="btn ghost" id="logoutBtn">Esci</button>
   </footer>
 </div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
 /* ====== CONFIGURAZIONE: incolla qui l'URL dell'App web di Google Apps Script ====== */
-const API_URL = "INCOLLA_QUI_URL_APP_WEB";
+const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAwwSDVIyL39jhvZaYF6ygjedm2jJYPH2A57V-8iVACIaau7A/exec";
 /* ================================================================================= */
 (function(){
   const $ = s => document.querySelector(s);
@@ -284,7 +286,7 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
   };
 
   const S = {
-    pin: store.get("rp_pin"), ready:false,
+    pin: store.get("rp_pin"), ready:false, role:null, me:null,
     ops:[], turni:new Map(),
     view:"inserisci", weekStart: monday(new Date()), month: ym(new Date()),
     editingId:null
@@ -309,19 +311,34 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
     setStatus("Carico i dati dal Foglio Google…");
     try{
       const j = await apiGet();
+      S.role = j.role; S.me = j.me || null;
       S.ops = j.ops.sort((a,b)=>String(a.nome).localeCompare(String(b.nome),"it"));
       S.turni = new Map(j.turni.map(t => [t.id, t]));
       S.ready = true; setStatus(null); $("#pinForm").hidden = true; enableWrites(true);
-      render();
+      render(); applyRole();
     }catch(e){
       if(e && e.error==="pin"){ S.pin = null; store.del("rp_pin"); askPin("PIN non valido: inseriscilo di nuovo."); return; }
       setStatus(errMsg(e), true);
     }
   }
 
+  function applyRole(){
+    const admin = S.role==="admin";
+    $("#opPanel").hidden = !admin;
+    $("#view-inserisci").classList.toggle("solo", !admin);
+    $("#wFilterRow").hidden = !admin;
+    $("#mFilter").hidden = !admin;
+    $("#fOp").disabled = !admin;
+    if(!admin && S.me) $("#fOp").value = S.me;
+    const me = opById(S.me);
+    $("#subline").textContent = !S.role ? "Orari e presenze degli operatori"
+      : admin ? "Amministratore · tutti gli operatori" : (me ? "Ciao "+me.nome+" · i tuoi orari" : "I tuoi orari");
+    renderRecent();
+  }
+
   function askPin(msg){
     setStatus(null); enableWrites(false);
-    $("#pinMsg").textContent = msg || "Inserisci il PIN che hai scelto nello script del Foglio Google.";
+    $("#pinMsg").textContent = msg || "Inserisci il tuo PIN personale.";
     $("#pinForm").hidden = false; $("#pinInput").focus();
   }
   $("#pinForm").addEventListener("submit", e => {
@@ -330,7 +347,7 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
     S.pin = v; store.set("rp_pin", v); $("#pinInput").value = ""; load();
   });
   $("#reloadBtn").addEventListener("click", () => { if(S.pin) load(); });
-  $("#logoutBtn").addEventListener("click", () => { S.pin = null; store.del("rp_pin"); S.ops = []; S.turni = new Map(); render(); askPin(); });
+  $("#logoutBtn").addEventListener("click", () => { S.pin = null; S.role = null; S.me = null; S.ready = false; store.del("rp_pin"); store.del("rp_op"); S.ops = []; S.turni = new Map(); endEdit(false); render(); applyRole(); askPin(); });
 
   /* ---------- UI basics ---------- */
   let toastT;
@@ -434,11 +451,22 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
     try{
       const j = await apiPost("addOp", {nome, colore:c});
       S.ops.push(j.item); S.ops.sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
-      $("#opName").value = ""; render(); $("#fOp").value = j.item.id; renderRecent(); toast(nome+" aggiunto");
+      $("#opName").value = ""; render(); $("#fOp").value = j.item.id; renderRecent(); toast(nome+" aggiunto · PIN "+j.item.pin);
     }catch(e){ toast(errMsg(e)); }
     finally{ addingOp = false; btn.disabled = false; btn.textContent = "Aggiungi"; $("#opName").disabled = false; }
   });
   $("#opList").addEventListener("click", e => {
+    const np = e.target.closest("[data-newpin]");
+    if(np){
+      const op = opById(np.dataset.newpin); if(!op) return;
+      const run = async () => {
+        np.disabled = true;
+        try{ const j = await apiPost("newPin", {id:op.id}); op.pin = j.pin; renderOps(); toast("Nuovo PIN di "+op.nome+": "+j.pin); }
+        catch(err){ np.disabled = false; toast(errMsg(err)); }
+      };
+      if(op.pin) armOrRun(np, run); else run();
+      return;
+    }
     const b = e.target.closest("[data-delop]"); if(!b) return;
     armOrRun(b, async () => {
       const id = b.dataset.delop, op = opById(id); if(!op) return;
@@ -464,12 +492,15 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
 
   function renderOps(){
     fillOpSelect($("#fOp"));
-    if(!$("#fOp").value){ const v = store.get("rp_op"); if(v && opById(v)) $("#fOp").value = v; }
+    if(S.role==="operatore" && S.me) $("#fOp").value = S.me;
+    else if(!$("#fOp").value){ const v = store.get("rp_op"); if(v && opById(v)) $("#fOp").value = v; }
     fillOpSelect($("#wFilter"), "Tutti gli operatori");
     fillOpSelect($("#mFilter"), "Tutti gli operatori");
     const ul = $("#opList");
-    if(!S.ops.length){ ul.innerHTML = `<li class="empty" style="display:block">Nessun operatore ancora. Aggiungi i nomi qui sopra: compariranno nel menu “Operatore”.</li>`; return; }
-    ul.innerHTML = S.ops.map(o => `<li><span class="dot" style="--c:var(--c${o.colore%6})"></span><span style="overflow-wrap:anywhere">${esc(o.nome)}</span><button class="btn ghost danger" data-delop="${esc(o.id)}" aria-label="Rimuovi ${esc(o.nome)}">Rimuovi</button></li>`).join("");
+    if(!S.ops.length){ ul.innerHTML = `<li class="empty" style="display:block">Nessun operatore ancora. Aggiungi i nomi qui sopra: per ognuno viene creato un PIN personale da consegnargli.</li>`; return; }
+    ul.innerHTML = S.ops.map(o => `<li><span class="dot" style="--c:var(--c${o.colore%6})"></span>
+      <div style="min-width:0"><span style="overflow-wrap:anywhere">${esc(o.nome)}</span><div class="meta">PIN <span class="mono" style="color:var(--ink);user-select:all">${o.pin ? esc(o.pin) : "non ancora creato"}</span></div></div>
+      <div class="row" style="gap:0;justify-content:flex-end"><button class="btn ghost" data-newpin="${esc(o.id)}">${o.pin ? "Nuovo PIN" : "Crea PIN"}</button><button class="btn ghost danger" data-delop="${esc(o.id)}" aria-label="Rimuovi ${esc(o.nome)}">Rimuovi</button></div></li>`).join("");
   }
 
   function renderActs(){
@@ -491,7 +522,7 @@ const API_URL = "INCOLLA_QUI_URL_APP_WEB";
     if(opId) arr = arr.filter(t => t.operatoreId===opId);
     arr.sort((a,b) => (b.aggiornato||"").localeCompare(a.aggiornato||""));
     arr = arr.slice(0,8);
-    $("#recentHint").textContent = opId && opById(opId) ? "di "+opById(opId).nome : "di tutti gli operatori";
+    $("#recentHint").textContent = S.role==="operatore" ? "i tuoi" : (opId && opById(opId) ? "di "+opById(opId).nome : "di tutti gli operatori");
     $("#recentList").innerHTML = arr.length ? arr.map(shiftLine).join("")
       : `<li class="empty" style="display:block">Ancora nessuna presenza. Compila il modulo: l’inserimento comparirà qui, nelle viste Settimana e Mese e nel Foglio Google.</li>`;
   }
