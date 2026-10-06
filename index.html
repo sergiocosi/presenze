@@ -260,7 +260,7 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
 
 <script>
 /* ====== CONFIGURAZIONE: incolla qui l'URL dell'App web di Google Apps Script ====== */
-const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAwwSDVIyL39jhvZaYF6ygjedm2jJYPH2A57V-8iVACIaau7A/exec";
+const API_URL = "INCOLLA_QUI_URL_APP_WEB";
 /* ================================================================================= */
 (function(){
   const $ = s => document.querySelector(s);
@@ -373,7 +373,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
 
   $("#shiftForm").addEventListener("submit", async ev => {
     ev.preventDefault();
-    if(!S.ready) return;
+    if(!S.ready || $("#saveBtn").disabled) return;
     const op = opById($("#fOp").value);
     if(!op){ $("#formMsg").textContent = "Scegli un operatore."; return; }
     if(!fDate.value || !$("#fIn").value || !$("#fOut").value){ $("#formMsg").textContent = "Inserisci data, entrata e uscita."; return; }
@@ -413,29 +413,38 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
   }
   $("#cancelEdit").addEventListener("click", () => endEdit(true));
 
+  // Eliminazione immediata a schermo; se il Foglio non risponde, il turno torna al suo posto
   async function delShift(id){
-    try{ await apiPost("deleteShift", {id}); S.turni.delete(id); toast("Presenza eliminata"); if(S.editingId===id) endEdit(true); render(); }
-    catch(e){ toast(errMsg(e)); }
+    const t = S.turni.get(id); if(!t) return;
+    S.turni.delete(id); if(S.editingId===id) endEdit(true); render(); toast("Presenza eliminata");
+    try{ await apiPost("deleteShift", {id}); }
+    catch(e){ S.turni.set(id, t); render(); toast("Eliminazione non riuscita: " + errMsg(e)); }
   }
 
   /* ---------- operatori ---------- */
+  let addingOp = false;
   $("#opForm").addEventListener("submit", async ev => {
     ev.preventDefault();
+    if(addingOp) return;
     const nome = $("#opName").value.trim(); if(!nome || !S.ready) return;
     if(S.ops.some(o => o.nome.toLowerCase()===nome.toLowerCase())){ toast("Operatore già presente"); return; }
     const used = new Set(S.ops.map(o=>o.colore%6)); let c = 0; while(used.has(c) && c<5) c++;
     if(used.size>=6) c = S.ops.length%6;
+    const btn = $("#opForm button"); addingOp = true; btn.disabled = true; btn.textContent = "Aggiungo…"; $("#opName").disabled = true;
     try{
       const j = await apiPost("addOp", {nome, colore:c});
       S.ops.push(j.item); S.ops.sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
       $("#opName").value = ""; render(); $("#fOp").value = j.item.id; renderRecent(); toast(nome+" aggiunto");
     }catch(e){ toast(errMsg(e)); }
+    finally{ addingOp = false; btn.disabled = false; btn.textContent = "Aggiungi"; $("#opName").disabled = false; }
   });
   $("#opList").addEventListener("click", e => {
     const b = e.target.closest("[data-delop]"); if(!b) return;
     armOrRun(b, async () => {
-      try{ await apiPost("deleteOp", {id:b.dataset.delop}); S.ops = S.ops.filter(o=>o.id!==b.dataset.delop); render(); toast("Operatore rimosso. Le sue presenze restano nel Foglio."); }
-      catch(err){ toast(errMsg(err)); }
+      const id = b.dataset.delop, op = opById(id); if(!op) return;
+      S.ops = S.ops.filter(o=>o.id!==id); render(); toast("Operatore rimosso. Le sue presenze restano nel Foglio.");
+      try{ await apiPost("deleteOp", {id}); }
+      catch(err){ S.ops.push(op); S.ops.sort((a,b)=>a.nome.localeCompare(b.nome,"it")); render(); toast("Rimozione non riuscita: " + errMsg(err)); }
     });
   });
 
