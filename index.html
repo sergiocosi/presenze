@@ -262,10 +262,10 @@ tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
 </div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="config.js"></script>
 <script>
-/* ====== CONFIGURAZIONE: incolla qui l'URL dell'App web di Google Apps Script ====== */
-const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAwwSDVIyL39jhvZaYF6ygjedm2jJYPH2A57V-8iVACIaau7A/exec";
-/* ================================================================================= */
+/* L'indirizzo del Foglio Google sta in config.js: questo file si può sostituire senza toccarlo */
+const API_URL = (window.REGISTRO_CONFIG && window.REGISTRO_CONFIG.API_URL) || "";
 (function(){
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -559,14 +559,17 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
     return [...S.turni.values()].filter(t => t.data.slice(0,7)===S.month)
       .sort((a,b) => a.data.localeCompare(b.data) || a.entrata.localeCompare(b.entrata));
   }
+  // "Individuale" (anche "individuale con…"), senza distinzione di maiuscole; tutto il resto è "altre attività"
+  const isInd = t => /^\s*individual/i.test(t.attivita || "");
+  // Raggruppa per nome, così i turni di un operatore doppio o ricreato finiscono nella stessa riga
   function summary(rows){
     const g = new Map();
     rows.forEach(t => {
-      const k = t.operatoreId || t.operatore;
-      if(!g.has(k)) g.set(k, {nome:opName(t), c:opColor(t), giorni:new Set(), turni:0, min:0, att:new Map()});
+      const nome = opName(t), k = nome.trim().toLowerCase();
+      if(!g.has(k)) g.set(k, {nome, c:opColor(t), giorni:new Set(), turni:0, min:0, ind:0, altre:0});
       const x = g.get(k), m = mins(t);
       x.giorni.add(t.data); x.turni++; x.min += m;
-      const a = t.attivita || "Senza attività"; x.att.set(a,(x.att.get(a)||0)+m);
+      if(isInd(t)) x.ind += m; else x.altre += m;
     });
     return [...g.values()].sort((a,b)=>a.nome.localeCompare(b.nome,"it"));
   }
@@ -578,10 +581,9 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
       $("#sumTable").innerHTML = `<tbody><tr><td class="empty">Nessuna presenza registrata a ${MESI[m-1]}. Le ore compariranno qui man mano che le inserisci.</td></tr></tbody>`;
     } else {
       const tot = sum.reduce((n,x)=>n+x.min,0), tt = sum.reduce((n,x)=>n+x.turni,0);
-      $("#sumTable").innerHTML = `<thead><tr><th>Operatore</th><th class="num">Giorni</th><th class="num">Turni</th><th class="num">Ore</th><th>Per attività</th></tr></thead>
-      <tbody>${sum.map(x => `<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap"><span class="dot" style="--c:${x.c}"></span>${esc(x.nome)}</span></td><td class="num">${x.giorni.size}</td><td class="num">${x.turni}</td><td class="num">${fmtH(x.min)}</td>
-        <td><div class="chips">${[...x.att].sort((a,b)=>b[1]-a[1]).map(([a,mm])=>`<span class="chip">${esc(a)} <span class="mono">${fmtH(mm)}</span></span>`).join("")}</div></td></tr>`).join("")}</tbody>
-      <tfoot><tr><td>Totale</td><td class="num"></td><td class="num">${tt}</td><td class="num">${fmtH(tot)}</td><td></td></tr></tfoot>`;
+      $("#sumTable").innerHTML = `<thead><tr><th>Operatore</th><th class="num">Giorni</th><th class="num">Turni</th><th class="num">Individuale</th><th class="num">Altre attività</th><th class="num">Ore totali</th></tr></thead>
+      <tbody>${sum.map(x => `<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap"><span class="dot" style="--c:${x.c}"></span>${esc(x.nome)}</span></td><td class="num">${x.giorni.size}</td><td class="num">${x.turni}</td><td class="num">${x.ind ? fmtH(x.ind) : "—"}</td><td class="num">${x.altre ? fmtH(x.altre) : "—"}</td><td class="num"><strong>${fmtH(x.min)}</strong></td></tr>`).join("")}</tbody>
+      <tfoot><tr><td>Totale</td><td class="num"></td><td class="num">${tt}</td><td class="num">${fmtH(sum.reduce((n,x)=>n+x.ind,0))}</td><td class="num">${fmtH(sum.reduce((n,x)=>n+x.altre,0))}</td><td class="num">${fmtH(tot)}</td></tr></tfoot>`;
     }
     const f = $("#mFilter").value, det = rows.filter(t => !f || t.operatoreId===f);
     $("#detTable").innerHTML = det.length ? `<thead><tr><th>Data</th><th>Operatore</th><th class="num">Entrata</th><th class="num">Uscita</th><th class="num">Ore</th><th>Attività</th><th>Note</th><th></th></tr></thead>
@@ -612,15 +614,17 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwLimd4RlsfqMC1n7BrnUAw
   $("#expSum").onclick = () => {
     const sum = summary(monthData());
     if(!sum.length){ toast("Nessun turno da esportare"); return; }
-    save("presenze-riepilogo-"+S.month+".csv", csv([["Operatore","Giorni","Turni","Ore","Dettaglio attività"],
-      ...sum.map(x => [x.nome, x.giorni.size, x.turni, decIt(x.min), [...x.att].map(([a,m])=>a+": "+decIt(m)).join(" | ")])]));
+    const tot = k => decIt(sum.reduce((n,x)=>n+x[k],0));
+    save("presenze-riepilogo-"+S.month+".csv", csv([["Operatore","Giorni","Turni","Ore Individuale","Ore altre attività","Ore totali"],
+      ...sum.map(x => [x.nome, x.giorni.size, x.turni, decIt(x.ind), decIt(x.altre), decIt(x.min)]),
+      ["Totale","",sum.reduce((n,x)=>n+x.turni,0), tot("ind"), tot("altre"), tot("min")]]));
   };
 
   /* ---------- avvio ---------- */
   updHours(); enableWrites(false);
   const v = store.get("rp_view"); if(v && v!=="inserisci") showView(v); else render();
   if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(API_URL)){
-    setStatus("Manca il collegamento al Foglio Google: apri index.html e incolla l’URL dell’App web nella riga API_URL in fondo al file.", true);
+    setStatus("Manca il collegamento al Foglio Google: controlla che config.js sia caricato su GitHub accanto a index.html e che contenga l’URL dell’App web.", true);
   } else if(!S.pin){ askPin(); }
   else { load(); }
 })();
